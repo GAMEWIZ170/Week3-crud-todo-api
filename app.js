@@ -1,3 +1,5 @@
+require('dotenv').config()
+
 const express = require('express');
 const app = express();
 app.use(express.json()); // Parse JSON bodies
@@ -14,9 +16,18 @@ app.get('/todos', (req, res) => {
 
 // POST New – Create
 app.post('/todos', (req, res) => {
-  const newTodo = { id: todos.length + 1, ...req.body }; // Auto-ID
+  const newTodo = { id: todos.length + 1, ...{task, completed} = req.body }; // Auto-ID
+  if (!task) return res.status(400).json({message: "task required"})
   todos.push(newTodo);
   res.status(201).json(newTodo); // Echo back
+});
+
+// GET BY ID - Read
+app.get('/todos/:id', (req, res) => {
+  const id = parseInt(req.params.id);
+  const todo = todos.find((t)=> t.id === id);
+  if (!todo) return res.status(400).json("Todo does not exist");
+  res.status(200).json(todo);
 });
 
 // PATCH Update – Partial
@@ -42,9 +53,14 @@ app.get('/todos/completed', (req, res) => {
   res.json(completed); // Custom Read!
 });
 
+app.get('/todos/active', (req, res) => {
+  const active = todos.find((t)=> !t.completed);
+  res.json(active);
+})
+
 app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Server error!' });
 });
 
-const PORT = 3002;
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server on port ${PORT}`));
