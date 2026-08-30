@@ -2,6 +2,9 @@ require('dotenv').config();
 
 const express = require('express');
 
+const connectDB = require('./database/db.js');
+const Todo = require('./models/todo.models.js');
+
 const logger = require('./middlewares/logger.js');
 const errorHandler = require('./middlewares/errorHandler.js');
 const validator = require('./middlewares/validator.js');
@@ -9,50 +12,58 @@ const patchValidator = require('./middlewares/patchValidator.js');
 
 const app = express();
 
+connectDB();
+
 app.use(express.json()); 
 app.use(logger);
 
-let todos = [
-  { id: 1, task: 'Learn Node.js', completed: false },
-  { id: 2, task: 'Build CRUD API', completed: false },
-];
 
-app.get('/todos', (req, res, next) => {
+app.get('/todos', async (req, res, next) => {
+  try{
+  const todos = await Todo.find({});
   res.status(200).json(todos); 
-});
-
-app.get('/todos/completed', (req, res, next) => {
-  const completed = todos.filter((t) => t.completed);
-  res.json(completed);
-});
-
-app.get('/todos/active', (req, res, next) => {
-  const active = todos.filter((t) => !t.completed);
-  res.json(active);
-});
-
-
-app.post('/todos', validator, (req, res, next) => {
-  try {
-    const { task, completed = false } = req.body;
-    if (!task) return res.status(400).json({ message: 'task required' });
-
-    const newTodo = { id: todos.length + 1, task, completed };
-    todos.push(newTodo);
-    res.status(201).json(newTodo);
   } catch (error) {
     next(error);
   }
 });
 
-app.get('/todos/:id', (req, res, next) => {
+app.get('/todos/completed', async (req, res, next) => {
   try {
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) {
-      throw new Error('Invalid ID');
-    }
+  const completed = await Todo.find({completed: true});
+  res.json(completed);
+} catch (error) {
+  next(error);
+}
+});
 
-    const todo = todos.find((t) => t.id === id);
+app.get('/todos/active', async (req, res, next) => {
+  try {
+  const completed = await Todo.find({completed: false});
+  res.json(completed);
+} catch (error) {
+  next(error);
+}
+});
+
+// CREATE TASK
+app.post('/todos', validator, async (req, res, next) => {
+  const {task, completed} = req.body;
+  const newTodo = new Todo({
+    task,
+    completed
+  })
+  
+  try {
+  await newTodo.save()
+  res.status(201).json(newTodo);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get('/todos/:id', async (req, res, next) => {
+  try {
+    const todo = await Todo.findById(req.params.id);
     if (!todo) return res.status(400).json('Todo does not exist');
     res.status(200).json(todo);
   } catch (error) {
@@ -60,28 +71,24 @@ app.get('/todos/:id', (req, res, next) => {
   }
 });
 
-app.patch('/todos/:id', patchValidator, (req, res, next) => {
+//EDIT A TASK
+app.patch('/todos/:id', patchValidator, async (req, res, next) => {
   try {
-    const todo = todos.find((t) => t.id === parseInt(req.params.id));
-    if (!todo) return res.status(404).json({ message: 'Todo not found' });
-
-    Object.assign(todo, req.body);
+    const todo = await Todo.findByIdAndUpdate(req.params.id, req.body, {new: true});
+    if (!todo) return res.status(400).json('Todo does not exist');
     res.status(200).json(todo);
   } catch (error) {
     next(error);
   }
 });
 
-app.delete('/todos/:id', (req, res, next) => {
+app.delete('/todos/:id', async (req, res, next) => {
   try {
-    const id = parseInt(req.params.id);
-    const initialLength = todos.length;
-    todos = todos.filter((t) => t.id !== id);
+  const todo = await Todo.findByIdAndDelete(req.params.id);
 
-    if (todos.length === initialLength)
-      return res.status(404).json({ error: 'Not found' });
+  if (!todo) return res.status(400).json('Todo does not exist');
+  res.status(204).send();
 
-    res.status(204).send();
   } catch (error) {
     next(error);
   }
@@ -89,5 +96,5 @@ app.delete('/todos/:id', (req, res, next) => {
 
 app.use(errorHandler);
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server on port ${PORT}`));
+const PORT = process.env.PORT;
+app.listen(PORT, () => console.log(`Server on port`));
