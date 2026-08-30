@@ -17,32 +17,20 @@ connectDB();
 app.use(express.json()); 
 app.use(logger);
 
-
 app.get('/todos', async (req, res, next) => {
-  try{
-  const todos = await Todo.find({});
-  res.status(200).json(todos); 
+  try {
+    const filter = {};
+
+    if (req.query.completed !== undefined) {
+      filter.completed = req.query.completed === 'true';
+    }
+
+    const todos = await Todo.find(filter);
+    if (!todo) res.status(400).json({message: "Todo does not exist!"})
+    res.status(200).json(todos);
   } catch (error) {
     next(error);
   }
-});
-
-app.get('/todos/completed', async (req, res, next) => {
-  try {
-  const completed = await Todo.find({completed: true});
-  res.json(completed);
-} catch (error) {
-  next(error);
-}
-});
-
-app.get('/todos/active', async (req, res, next) => {
-  try {
-  const completed = await Todo.find({completed: false});
-  res.json(completed);
-} catch (error) {
-  next(error);
-}
 });
 
 // CREATE TASK
