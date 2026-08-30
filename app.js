@@ -26,7 +26,6 @@ app.get('/todos', async (req, res, next) => {
     }
 
     const todos = await Todo.find(filter);
-    if (!todo) res.status(400).json({message: "Todo does not exist!"})
     res.status(200).json(todos);
   } catch (error) {
     next(error);
